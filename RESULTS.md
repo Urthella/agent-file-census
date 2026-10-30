@@ -84,5 +84,8 @@ with the maintainers.
 
 Who built this: Claude wrote the code and this page, with Halil Utku Demirtaş directing the work.
 
+The list of repositories and every detector hit from this run are in
+[`data/run-10k-2026-10-30`](data/run-10k-2026-10-30). File contents aren't stored, except for the matched text.
+
 To reproduce the scan, run `node src/scan.ts OUT_DIR 10000`, then `node src/review.ts OUT_DIR`. To rerun the positive control, run
 `node src/control.ts FINDINGS_JSONL OWNER/REPO...`.
