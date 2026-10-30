@@ -4,22 +4,59 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { detect, type Hit } from "./detect.ts";
 
 export const PATHS = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".cursorrules", ".windsurfrules", ".clinerules", ".github/copilot-instructions.md"];
 const RULE_DIRS = [".cursor/rules"];
 const BATCH = 25;
 
-const gh = (...args: string[]) => JSON.parse(execFileSync("gh", ["api", ...args], { encoding: "utf8", maxBuffer: 1 << 28 }));
+const gh = (...args: string[]) => JSON.parse(execFileSync("gh", ["api", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 28 }));
 
-function topRepos(limit: number): string[] {
-  const names: string[] = [];
-  for (let page = 1; names.length < limit && page <= 10; page++) {
-    const q = encodeURIComponent("stars:>=1000 fork:false archived:false");
-    const res = gh(`search/repositories?q=${q}&sort=stars&order=desc&per_page=100&page=${page}`);
-    names.push(...res.items.map((r: { full_name: string }) => r.full_name));
+/** Search returns 1,000 results per query at most, so each query starts where the last one ended. */
+async function topRepos(limit: number): Promise<string[]> {
+  const names = new Set<string>();
+  let ceiling: number | null = null;
+  while (names.size < limit) {
+    let lowest = Infinity;
+    const before = names.size;
+    for (let page = 1; page <= 10 && names.size < limit; page++) {
+      const q = encodeURIComponent(`stars:${ceiling === null ? ">=1000" : `1000..${ceiling}`} fork:false archived:false`);
+      const res = gh(`search/repositories?q=${q}&sort=stars&order=desc&per_page=100&page=${page}`);
+      for (const r of res.items as { full_name: string; stargazers_count: number }[]) {
+        names.add(r.full_name);
+        lowest = Math.min(lowest, r.stargazers_count);
+      }
+      await sleep(2200); // search allows 30 requests a minute
+      if (res.items.length < 100) break;
+    }
+    if (names.size === before) break; // nothing new: the list has run out
+    ceiling = lowest;
   }
-  return names.slice(0, limit);
+  return [...names].slice(0, limit);
+}
+
+/** GraphQL rate limits are temporary. A partly failed batch still has data, so that isn't retried. */
+async function graphql(q: string): Promise<any> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return gh("graphql", "-f", `query=${q}`).data;
+    } catch (e) {
+      const { stdout, stderr } = e as { stdout?: string; stderr?: string };
+      let data = null;
+      try {
+        data = stdout ? JSON.parse(stdout).data : null;
+      } catch {
+        // not JSON: an HTML error page
+      }
+      if (data) return data;
+      if (attempt >= 4) {
+        console.error(`giving up on a batch: ${String(stderr).slice(0, 200)}`);
+        return null;
+      }
+      await sleep(30_000 * 2 ** attempt);
+    }
+  }
 }
 
 const BLOB = "... on Blob { text isTruncated isBinary }";
@@ -45,7 +82,9 @@ export interface FileRecord {
 async function main() {
   const [out, limit = "1000"] = process.argv.slice(2);
   mkdirSync(out, { recursive: true });
-  const repos = topRepos(Number(limit));
+  const repos = await topRepos(Number(limit));
+  writeFileSync(join(out, "repos.json"), JSON.stringify(repos, null, 1));
+  console.error(`${repos.length} repos listed`);
   const files: FileRecord[] = [];
   const failed: string[] = [];
   const add = (repo: string, path: string, blob: { text: string | null; isTruncated: boolean; isBinary: boolean | null }) => {
@@ -55,17 +94,10 @@ async function main() {
   };
   for (let start = 0; start < repos.length; start += BATCH) {
     const batch = repos.slice(start, start + BATCH);
-    let data;
-    try {
-      data = gh("graphql", "-f", `query=${query(batch)}`).data;
-    } catch (e) {
-      // GraphQL reports a partly failed batch as an error but still returns the rest.
-      const body = (e as { stdout?: string }).stdout;
-      data = body ? JSON.parse(body).data : null;
-      if (!data) {
-        failed.push(...batch);
-        continue;
-      }
+    const data = await graphql(query(batch));
+    if (!data) {
+      failed.push(...batch);
+      continue;
     }
     batch.forEach((repo, i) => {
       const r = data[`r${i}`];
@@ -76,8 +108,8 @@ async function main() {
       });
     });
     console.error(`${Math.min(start + BATCH, repos.length)}/${repos.length}`);
+    if ((start / BATCH) % 40 === 0) writeFileSync(join(out, "files.json"), JSON.stringify(files, null, 1)); // keep progress if the run dies
   }
-  writeFileSync(join(out, "repos.json"), JSON.stringify(repos, null, 1));
   writeFileSync(join(out, "files.json"), JSON.stringify(files, null, 1));
   writeFileSync(join(out, "failed.json"), JSON.stringify(failed));
   console.log(JSON.stringify(summarize(repos, files, failed), null, 1));

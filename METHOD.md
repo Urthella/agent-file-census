@@ -27,6 +27,18 @@ The 1,000 most-starred public repositories from GitHub search, excluding forks a
 the day of the scan. This run is a pilot: its purpose is to test the pipeline and see whether there is
 any signal. It says nothing about less popular repositories, where attacks may be more or less common.
 
+### Second run
+
+Added after the pilot, before scanning further. The pilot found no hidden Unicode and no attacks in
+755 files, and the second run extends it to the 10,000 most-starred repositories, with the same paths,
+rules and review. No rule was changed after seeing the pilot, including the risk pattern that flagged
+a harmless use of the word "tokens". The pilot's repositories are part of the 10,000, so this isn't an
+independent sample. Results are also reported for ranks 1 to 1,000 and 1,001 to 10,000 separately.
+
+GitHub search returns at most 1,000 results per query, so the list is built by walking down star
+counts. Repositories with equal stars at a boundary may be missed or reordered, so ranks are
+approximate.
+
 ## Files
 
 From the default branch, at these exact paths:
