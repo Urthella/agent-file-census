@@ -1,0 +1,10 @@
+{
+  "name": "agent-file-census",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Do agent instruction files in popular repos hide text a person can't see?",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": { "test": "node --test test/*.test.ts" }
+}
