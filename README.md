@@ -9,6 +9,16 @@ page. This repository measures how often that happens in the most-starred public
 [METHOD.md](METHOD.md) sets out the sample, rules and review. It was committed before anything was
 scanned.
 
+## What it found
+
+In the 10,000 most-starred repositories, 2,401 have at least one instruction file, 4,166 files in all.
+None contains hidden Unicode, and the review found no attacks. Two projects, `vercel/next.js` and
+`openbao/openbao`, use hidden comments to ask agents to mark their own output.
+
+That doesn't show these files are safe. Hidden text is rare enough that a sample this size would
+probably find nothing either way, and it doesn't cover less popular repositories.
+[RESULTS.md](RESULTS.md) has the numbers and limits.
+
 ## Run it
 
 You need Node 24 and a logged-in [GitHub CLI](https://cli.github.com). There's nothing to install.

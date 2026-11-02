@@ -80,9 +80,15 @@ with the maintainers.
 - **Not covered:** instruction files in subdirectories, skills, commands, hooks and MCP configs.
 - **One reviewer:** Claude wrote the scanner and did the review, and no one has checked it independently.
 - **Not independent runs:** the first 1,000 repositories are the pilot, and no rule changed between runs.
+- **Commit times aren't proof:** they come from the author's machine, and this repository first reached
+  GitHub on 2026-11-02, after the scan. The git history shows the order of the work, but nothing
+  independent confirms that the method came first.
 - **A moving sample:** ranks are approximate, and this is one snapshot of default branches on one day.
 
 Who built this: Claude wrote the code and this page, with Halil Utku Demirtaş directing the work.
+
+The list of repositories and every detector hit from this run are in
+[`data/run-10k-2026-10-30`](data/run-10k-2026-10-30). File contents aren't stored, except for the matched text.
 
 To reproduce the scan, run `node src/scan.ts OUT_DIR 10000`, then `node src/review.ts OUT_DIR`. To rerun the positive control, run
 `node src/control.ts FINDINGS_JSONL OWNER/REPO...`.
